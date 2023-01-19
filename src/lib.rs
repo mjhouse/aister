@@ -1,6 +1,9 @@
 use std::f64::consts::E;
 use rand::Rng;
 
+mod layer;
+mod activation;
+
 struct Network {
     weights: Vec<f64>
 }
