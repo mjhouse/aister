@@ -1,8 +1,33 @@
+/*
+    ## ReLU Derivatives
+
+    The derivatives of the below ReLU-like activations are supposed to be 
+    NaN if the input value IS 0.0, but I've seen a few places online that 
+    suggest this isn't great for practical purposes and that we should default
+    to returning a non-zero value. 
+
+    ## Information
+
+    Most of the information on the different activation functions and their derivatives 
+    was taken from this website:
+
+    https://www.analyticsvidhya.com/blog/2021/04/activation-functions-and-their-derivatives-a-quick-complete-guide/
+    https://www.analyticsvidhya.com/blog/2020/01/fundamentals-deep-learning-activation-functions-when-to-use-them/
+
+    ## Notes
+
+    * Derivatives all make use of `f(x)` in the equations, which is equivelent to `v` here
+
+*/
+
 use std::f64::consts::E;
 
 pub trait Activation {
-    fn apply(&self, v: f64) -> f64;
-    fn derivative(&self, v: f64) -> f64;
+    
+    fn activate(&self, v: &mut [f64]);
+
+    fn derivative(&self, v: &mut [f64]);
+
 }
 
 pub struct Binary;
@@ -13,97 +38,175 @@ pub struct ReLU;
 pub struct LeakyReLU;
 pub struct ParamReLU(f64);
 pub struct ELU(f64);
+pub struct Swish;
+pub struct SoftMax;
 
 impl Activation for Binary {
-    fn apply(&self, v: f64) -> f64 {
-        if v < 0.0 { 0.0 } else { 1.0 }
+    fn activate(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            if *x < 0.0 {
+                *x = 0.0;
+            } else {
+                *x = 1.0;
+            }
+        }
     }
-    fn derivative(&self, v: f64) -> f64 {
-        0.0
+    fn derivative(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            *x = 0.0;
+        }
     }
 }
 
 impl Activation for Linear {
-    fn apply(&self, v: f64) -> f64 {
-        self.0 * v
+    fn activate(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            *x = self.0 * (*x);
+        }
     }
-    fn derivative(&self, v: f64) -> f64 {
-        1.0
+    fn derivative(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            *x = self.0;
+        }
     }
 }
 
-// URL: https://dustinstansbury.github.io/theclevermachine/derivation-common-neural-network-activation-functions
 impl Activation for Sigmoid {
-    fn apply(&self, v: f64) -> f64 {
-        1.0 / (1.0 + E.powf(-v))
+    fn activate(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            *x = 1.0 / (1.0 + E.powf(-(*x)));
+        }
     }
-    fn derivative(&self, v: f64) -> f64 {
-        v * (1.0 - v)
+    fn derivative(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            *x = (*x) * (1.0 - (*x));
+        }
     }
 }
 
-// URL: https://www.analyticsvidhya.com/blog/2021/04/activation-functions-and-their-derivatives-a-quick-complete-guide/
-// t=(np.exp(x)-np.exp(-x))/(np.exp(x)+np.exp(-x))
-// dt=1-t**2
 impl Activation for Tanh {
-    fn apply(&self, v: f64) -> f64 {
-        (2.0 / (1.0 + E.powf(-v))) - 1.0
+    fn activate(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            *x = (2.0 / (1.0 + E.powf(-2.0 * (*x)))) - 1.0;
+        }
     }
-    fn derivative(&self, v: f64) -> f64 {
-        0.0
+    fn derivative(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            *x = 1.0 - (*x).powf(2.0);
+        }
     }
 }
 
 impl Activation for ReLU {
-    fn apply(&self, v: f64) -> f64 {
-        if v < 0.0 { 0.0 } else { v }
+    fn activate(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            if (*x) < 0.0 {
+                *x = 0.0;
+            }
+        }
     }
-    fn derivative(&self, v: f64) -> f64 {
-        match v {
-            _ if v < 0.0 => 0.0,
-            _ if v > 0.0 => 1.0,
-            _ => f64::NAN // TODO: figure out if this should be 0.0
+    fn derivative(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            if (*x) < 0.0 {
+                *x = 0.0;
+            } else { 
+                *x = 1.0;
+            }
         }
     }
 }
 
 impl Activation for LeakyReLU {
-    fn apply(&self, v: f64) -> f64 {
-        if v < 0.0 { 0.01*v } else { v }
+    fn activate(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            if (*x) < 0.0 { 
+                *x = 0.01 * (*x);
+            }
+        }
     }
-    fn derivative(&self, v: f64) -> f64 {
-        match v {
-            _ if v < 0.0 => 0.01,
-            _ if v > 0.0 => 1.0,
-            _ => f64::NAN // TODO: figure out if this should be 0.0
+    fn derivative(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            if (*x) < 0.0 {
+                *x = 0.01;
+            } else { 
+                *x = 1.0;
+            }
         }
     }
 }
 
 impl Activation for ParamReLU {
-    fn apply(&self, v: f64) -> f64 {
-        if v < 0.0 { self.0*v } else { v }
+    fn activate(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            if (*x) < 0.0 { 
+                *x = self.0 * (*x);
+            }
+        }
     }
-    fn derivative(&self, v: f64) -> f64 {
-        match v {
-            _ if v < 0.0 => self.0,
-            _ if v > 0.0 => 1.0,
-            _ => f64::NAN // TODO: figure out if this should be 0.0
+    fn derivative(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            if (*x) < 0.0 {
+                *x = self.0;
+            } else { 
+                *x = 1.0;
+            }
         }
     }
 }
 
 impl Activation for ELU {
-    fn apply(&self, v: f64) -> f64 {
-        if v < 0.0 {
-            self.0 * (E.powf(v) - 1.0)
-        } else { v }
+    fn activate(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            if (*x) < 0.0 { 
+                *x = self.0 * (E.powf(*x) - 1.0);
+            }
+        }
     }
-    fn derivative(&self, v: f64) -> f64 {
-        match v {
-            _ if v < 0.0 => self.0 * E.powf(v),
-            _ if v > 0.0 => 1.0,
-            _ => f64::NAN // TODO: figure out if this should be 0.0
+    fn derivative(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            if (*x) < 0.0 {
+                *x = self.0 + (*x);
+            } else { 
+                *x = 1.0;
+            }
+        }
+    }
+}
+
+impl Activation for Swish {
+    fn activate(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            *x = (*x) * (1.0 / (1.0 + E.powf(-(*x))));
+        }
+    }
+    fn derivative(&self, v: &mut [f64]) {
+        for x in v.iter_mut() {
+            *x = (*x) / (1.0 - E.powf(-(*x)));
+        }
+    }
+}
+
+impl Activation for SoftMax {
+    fn activate(&self, v: &mut [f64]) {
+        let max: f64 = v
+            .iter()
+            .max_by(|a,b| a.total_cmp(b))
+            .cloned()
+            .unwrap_or(0.0);
+
+        let sum: f64 = v.iter()
+            .map(|n| n.exp() - max)
+            .sum();
+
+        for x in v.iter_mut() {
+            let k = x.exp() - max;
+            *x = k / sum;
+        }
+    }
+    fn derivative(&self, v: &mut [f64]) {
+        self.activate(v);
+        for x in v.iter_mut() {
+            *x = (*x) * (1.0 - (*x))
         }
     }
 }
